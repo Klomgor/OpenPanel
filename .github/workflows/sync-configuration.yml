@@ -17,9 +17,10 @@ jobs:
         run: |
          
           # Clean existing folders
-          rm -rf translations configuration opencli integrations/fossbilling integrations/paymenter.org integrations/whmcs integrations/cpanel-import integrations/virtualizor
+          rm -rf tests translations configuration opencli integrations/fossbilling integrations/paymenter.org integrations/whmcs integrations/cpanel-import integrations/virtualizor
 
           # Clone replacements
+          git clone --depth=1 https://github.com/stefanpejcic/openpanel-tests tests-tmp
           git clone --depth=1 https://github.com/stefanpejcic/openpanel-translations translations-tmp
           git clone --depth=1 https://github.com/stefanpejcic/openpanel-configuration configuration-tmp
           git clone --depth=1 https://github.com/stefanpejcic/opencli opencli-tmp
@@ -31,6 +32,7 @@ jobs:
           git clone --depth=1 https://github.com/stefanpejcic/FOSSBilling-OpenPanel fossbilling-tmp
 
           # Move contents only (not the .git folder)
+          mv tests-tmp tests
           mv translations-tmp translations
           mv configuration-tmp configuration
           mv opencli-tmp opencli
@@ -41,7 +43,7 @@ jobs:
           mv paymenter-tmp integrations/paymenter.org
           mv fossbilling-tmp integrations/fossbilling
 
-          rm -rf translations/.git configuration/.git configuration/.github opencli/.git opencli/.github  integrations/cpanel-import/.git integrations/whmcs/.git virtualizor/whmcs/.git integrations/paymenter.org/.git integrations/fossbilling/.git
+          rm -rf tests/.git translations/.git configuration/.git configuration/.github opencli/.git opencli/.github  integrations/cpanel-import/.git integrations/whmcs/.git virtualizor/whmcs/.git integrations/paymenter.org/.git integrations/fossbilling/.git
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
