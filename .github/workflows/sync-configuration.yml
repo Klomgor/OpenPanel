@@ -17,6 +17,7 @@ jobs:
         run: |
          
           # Clean existing folders
+          git rm -r --cached tests translations configuration opencli integrations/fossbilling integrations/paymenter.org integrations/whmcs integrations/cpanel-import integrations/virtualizor || true
           rm -rf tests translations configuration opencli integrations/fossbilling integrations/paymenter.org integrations/whmcs integrations/cpanel-import integrations/virtualizor
 
           # Clone replacements
