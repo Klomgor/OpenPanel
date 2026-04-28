@@ -1,0 +1,9 @@
+test-results
+package.json
+package-lock.json
+node_modules
+.auth
+.env
+openpanel/.env
+openadmin/.env
+opencli/.env
