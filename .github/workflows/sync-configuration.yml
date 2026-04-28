@@ -44,12 +44,12 @@ jobs:
           mv paymenter-tmp integrations/paymenter.org
           mv fossbilling-tmp integrations/fossbilling
 
-          rm -rf tests/.git translations/.git configuration/.git configuration/.github opencli/.git opencli/.github  integrations/cpanel-import/.git integrations/whmcs/.git virtualizor/whmcs/.git integrations/paymenter.org/.git integrations/fossbilling/.git
+          rm -rf tests/.git translations/.git configuration/.git configuration/.github opencli/.git opencli/.github  integrations/cpanel-import/.git integrations/whmcs/.git /integrations/virtualizor/.git integrations/paymenter.org/.git integrations/fossbilling/.git
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add translations configuration opencli integrations
+          git add translations configuration opencli integrations tests
           if ! git diff --cached --quiet; then
             git commit -m "chore: sync folders from upstream"
             git push origin main
