@@ -48,8 +48,8 @@ jobs:
 
           rm -rf tests/.git translations/.git configuration/.git configuration/.github opencli/.git opencli/.github  integrations/cpanel-import/.git integrations/cyberpanel-import/.git integrations/whmcs/.git /integrations/virtualizor/.git integrations/paymenter.org/.git integrations/fossbilling/.git
 
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "stefanpejcic"
+          git config user.email "stefan@pejcic.rs"
 
           git add translations configuration opencli integrations tests
           if ! git diff --cached --quiet; then
