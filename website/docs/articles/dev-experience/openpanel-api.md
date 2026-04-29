@@ -130,29 +130,6 @@ Example response:
 }
 ```
 
-### Container DF
-
-```bash
-curl -X GET https://OPENPANEL:2083/api/container/df \
-  -H "Authorization: Bearer JWT_TOKEN_HERE"
-```
-
-Example response:
-```json
-{
-  "data": [
-    {
-      "BuildCache": [],
-      "Containers": [
-        {
-          "Command": "\"sh /etc/boot-container/bootstrap.sh\"",
-          "CreatedAt": "2025-05-09 23:38:39 +0000 UTC",
-          "ID": "4e04b37fb3b7cb87d81d1ccec8de8a6055f133612c91575189eecd7bcd96d87f",
-          "Image": "openpanel/torwebsite:latest",
-          "Labels": "com.docker.compose.project.working_dir=/home/pcx3,com.docker.compose.version=2.36.0
-          ...
-```
-
 ### Disk inodes
 
 ```bash
