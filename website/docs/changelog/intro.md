@@ -4,8 +4,8 @@
 | Version| Release date |
 |---|---|
 | __[1.7.57](/docs/changelog/1.7.57)__| May 13, 2026 |
-### Latest
 
+### Latest
 | Version| Release date | 
 |---|---|
 |__[1.7.56](/docs/changelog/1.7.56)__| April 29, 2026 |
