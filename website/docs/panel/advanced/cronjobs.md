@@ -10,10 +10,6 @@ A cron job is a Linux command used to schedule tasks for future execution. It al
 
 On the CronJobs page you can view currently scheduled tasks, create new, edit or delete them.
 
-:::info
-The TimeZone setting is handy for running scheduled [cronjobs](/docs/panel/advanced/cronjobs) in your local timezone.
-:::
-
 
 ## Add
 
