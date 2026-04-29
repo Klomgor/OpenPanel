@@ -394,5 +394,4 @@ test('reset dns zone', async ({ page }) => {
 });
 
 
-// TODO: test delete record, test edit record,
-//       test edit file, export zone and reset
+// TODO: domain suspend/unsuspend
