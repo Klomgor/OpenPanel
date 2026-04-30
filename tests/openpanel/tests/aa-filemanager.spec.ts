@@ -14,11 +14,22 @@ const ZIP_FOLDER = `radofol_${suffix}`;
 const ZIP_ARCHIVE = `/rasizip_${suffix}`;
 const ZIP_ARCHIVE_NAME = `rasizip_${suffix}.zip`;
 
+// Subdirectory used for tests that need cleanup, to avoid deleting docroots
+const TEST_SUBDIR = `test_subdir_${suffix}`;
+const TEST_FILE = `test_file_${suffix}`;
+const TEST_DIR = `test_dir_${suffix}`;
+
+
 async function navigateToFiles(page: any) {
   await page.goto(`/files`);
 }
 
-async function createFile(page: any, fileName: string, openAfterCreate = false) {
+async function navigateToSubdir(page: any) {
+
+  	await page.goto(`/files/${TEST_SUBDIR}`);
+}
+
+async function createFileInRoot(page: any, fileName: string, openAfterCreate = false) {
   await navigateToFiles(page);
   await page.getByRole('button', { name: ' New File' }).click();
   await page.getByRole('textbox', { name: 'File Name*' }).fill(fileName);
@@ -28,8 +39,24 @@ async function createFile(page: any, fileName: string, openAfterCreate = false) 
   await page.getByRole('button', { name: 'Create' }).click();
 }
 
-async function createFolder(page: any, folderName: string) {
+async function createFile(page: any, fileName: string, openAfterCreate = false) {
+  await page.getByRole('button', { name: ' New File' }).click();
+  await page.getByRole('textbox', { name: 'File Name*' }).fill(fileName);
+  if (openAfterCreate) {
+    await page.locator('#open').check();
+  }
+  await page.getByRole('button', { name: 'Create' }).click();
+}
+
+
+async function createFolderInRoot(page: any, folderName: string) {
   await navigateToFiles(page);
+  await page.getByRole('button', { name: ' New Folder' }).click();
+  await page.locator('#foldername').fill(folderName);
+  await page.getByRole('button', { name: 'Create' }).click();
+}
+
+async function createFolder(page: any, folderName: string) {
   await page.getByRole('button', { name: ' New Folder' }).click();
   await page.locator('#foldername').fill(folderName);
   await page.getByRole('button', { name: 'Create' }).click();
@@ -42,35 +69,45 @@ async function selectItem(page: any, name: string, multiSelect = false) {
 }
 
 async function deleteSelected(page: any, skipTrash = false) {
-  await page.getByRole('button', { name: ' Delete' }).click();
+  await page.locator('#deleteButton').click();
   if (skipTrash) {
     await page.getByRole('checkbox', { name: 'Skip the trash and' }).check();
   }
   await page.getByRole('button', { name: 'Delete', exact: true }).click();
 }
 
-async function cleanupAll(page: any) {
-  await page.getByRole('button', { name: ' Select all' }).click();
-  await page.getByRole('button', { name: ' Delete' }).click();
-  await page.getByText('Skip the trash and').click();
-  await page.getByRole('button', { name: 'Delete', exact: true }).click();
-  await expect(page.locator('body')).toContainText(/No items found/i);
+// Cleanup scoped to TEST_SUBDIR only, to avoid deleting docroots
+async function cleanupSubdir(page: any) {
+	await createFolderInRoot(page, TEST_SUBDIR);
+	await page.waitForTimeout(5000);
+	await navigateToSubdir(page);
+	await createFile(page, TEST_FILE);
+	await page.waitForTimeout(5000);
+	await createFolder(page, TEST_DIR);
+	await page.getByRole('button', { name: ' Select all' }).click();
+	await page.locator('#deleteButton').click();
+	await page.getByText('Skip the trash and').click();
+	await page.getByRole('button', { name: 'Delete', exact: true }).click();
+	await expect(page.locator('body')).toContainText(/No items found/i);
 }
-
 // TODO: test toggle column names makes them visible in the table
-
-// TODO: test just from cleanupAll() to check if delete working
+	
 // TODO: test for folder search and file search
+	
 // TODO: copy path button test
+	
 // TODO: looooong breadcrumbs test
+	
 // TODO: test upload drag and drop
+	
 // TODO: test upload multiple files
+	
 
 
 test('create file', async ({ page }) => {
   await navigateToFiles(page);
 
-  await createFile(page, FILE_NAME);
+  await createFileInRoot(page, FILE_NAME);
   await expect(page.locator('body')).toContainText(/File created successfully/i);
   await expect(page.locator('body')).toContainText(new RegExp(FILE_NAME, 'i'));
 
@@ -80,7 +117,7 @@ test('create file', async ({ page }) => {
 test('create folder', async ({ page }) => {
   await navigateToFiles(page);
 
-  await createFolder(page, FOLDER_NAME);
+  await createFolderInRoot(page, FOLDER_NAME);
   await expect(page.locator('body')).toContainText(/Folder created successfully/i);
   await expect(page.locator('body')).toContainText(new RegExp(FOLDER_NAME, 'i'));
 
@@ -129,7 +166,7 @@ test('delete file to trash', async ({ page }) => {
   await navigateToFiles(page);
 
   await selectItem(page, FILE_NAME);
-  await page.getByRole('button', { name: ' Delete' }).click();
+  await page.locator('#deleteButton').click();
   await page.getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(page.locator('body')).not.toContainText(new RegExp(FILE_NAME, 'i'));
 
@@ -138,18 +175,19 @@ test('delete file to trash', async ({ page }) => {
 
 test('restore file from trash', async ({ page }) => {
   await navigateToFiles(page);
-
   await page.getByRole('link', { name: 'Trash' }).click();
   await expect(page.locator('body')).toContainText(new RegExp(FILE_NAME, 'i'));
-
   await selectItem(page, FILE_NAME);
   await page.click('#restoreButton');
   await page.getByRole('button', { name: 'Restore', exact: true }).click();
-  // TODO: open again trash and check does NOT have it anymore
+
+  // Refresh before verifying file is no longer in trash
+  await page.waitForTimeout(5000);
+  await page.reload();
+  await expect(page.locator('body')).not.toContainText(new RegExp(FILE_NAME, 'i'));
 
   await page.getByRole('link', { name: 'File Manager' }).click();
   await expect(page.locator('body')).toContainText(new RegExp(FILE_NAME, 'i'));
-
   console.log('File restored from trash successfully');
 });
 
@@ -167,41 +205,59 @@ test('delete multiple items permanently', async ({ page }) => {
 });
 
 
-test('create file with editor, view and edit content', async ({ page }) => {
-  // TODO: separate to 3 functions: create, edit, view
-  // TODO: on edit test all 4 code editor modes!
+async function createFileWithEditor(page: any, fileName: string) {
   await navigateToFiles(page);
-
-  await createFile(page, TXT_FILE, true);
+  await createFileInRoot(page, fileName, true);
   await page.locator('.view-lines').click();
   await page.getByRole('textbox', { name: 'Editor content;Press Alt+F1' }).fill('nekitext');
   await page.getByRole('button', { name: 'Save' }).click();
   await page.locator('#fullscreenButton').click();
   await expect(page.locator('body')).toContainText(/File saved successfully/i);
+  console.log('File created with editor successfully');
+}
 
+async function viewFile(page: any, fileName: string, expectedContent: string) {
   await navigateToFiles(page);
-  await expect(page.locator('body')).toContainText(new RegExp(TXT_FILE, 'i'));
+  await expect(page.locator('body')).toContainText(new RegExp(fileName, 'i'));
 
-  await selectItem(page, TXT_FILE);
-  const page2Promise = page.waitForEvent('popup');
+  await selectItem(page, fileName);
+  const popupPromise = page.waitForEvent('popup');
   await page.getByRole('button', { name: ' View' }).click();
-  const page2 = await page2Promise;
-  await expect(page2.locator('body')).toContainText(/nekitext/i);
+  const popup = await popupPromise;
+  await expect(popup.locator('body')).toContainText(new RegExp(expectedContent, 'i'));
+  console.log('File viewed successfully');
+}
 
-  const page3Promise = page.waitForEvent('popup');
+async function editFile(page: any, fileName: string, newContent: string) {
+  await navigateToFiles(page);
+  await selectItem(page, fileName);
+  const popupPromise = page.waitForEvent('popup');
   await page.getByRole('button', { name: ' Edit' }).click();
-  const page3 = await page3Promise;
-  await expect(page3.locator('body')).toContainText(/nekitext/i);
-  await page3.locator('div').filter({ hasText: /^nekitext$/ }).nth(2).click();
-  await page3.getByRole('textbox', { name: 'Editor content;Press Alt+F1' }).fill('nekitext2');
-  await page3.getByRole('button', { name: 'Save' }).click();
+  const popup = await popupPromise;
+  await popup.locator('div').filter({ hasText: /^nekitext$/ }).nth(2).click();
+  await popup.getByRole('textbox', { name: 'Editor content;Press Alt+F1' }).fill(newContent);
+  await popup.getByRole('button', { name: 'Save' }).click();
+  console.log('File edited successfully');
+}
 
-  const page4Promise = page.waitForEvent('popup');
+test('create file with editor', async ({ page }) => {
+  await createFileWithEditor(page, TXT_FILE);
+});
+
+test('view file content', async ({ page }) => {
+  await viewFile(page, TXT_FILE, 'nekitext');
+});
+
+test('edit file content', async ({ page }) => {
+  await editFile(page, TXT_FILE, 'nekitext2');
+
+  // Verify updated content is visible after edit
+  const verifyPopupPromise = page.waitForEvent('popup');
   await page.getByRole('button', { name: ' View' }).click();
-  const page4 = await page4Promise;
-  await expect(page4.locator('body')).toContainText(/nekitext2/i);
+  const verifyPopup = await verifyPopupPromise;
+  await expect(verifyPopup.locator('body')).toContainText(/nekitext2/i);
 
-  console.log('File created, viewed, and edited successfully');
+  console.log('File content updated and verified successfully');
 });
 
 
@@ -213,7 +269,9 @@ test('rename file', async ({ page }) => {
   await page.locator('#renameInput').click();
   await page.locator('#renameInput').fill(TXT_FILE_BAK);
   await page.getByRole('button', { name: 'Rename', exact: true }).click();
-  // TODO: add check to NOT contain old filename
+
+  // Verify old filename is gone and new filename is present
+  await expect(page.locator('body')).not.toContainText(new RegExp(`^${TXT_FILE}$`, 'i'));
   await expect(page.locator('body')).toContainText(new RegExp(TXT_FILE_BAK, 'i'));
   await expect(page.locator('body')).toContainText(/File renamed successfully/i);
 
@@ -237,12 +295,10 @@ test('change file permissions', async ({ page }) => {
   console.log('File permissions changed successfully');
 });
 
-
 test('upload file from URL', async ({ page }) => {
   test.setTimeout(180_000);
 
   await navigateToFiles(page);
-  await cleanupAll(page);
 
   const page5Promise = page.waitForEvent('popup');
   await page.getByRole('button', { name: ' Upload' }).click();
@@ -263,13 +319,11 @@ test('upload file from URL', async ({ page }) => {
 });
 
 
-test('compress and extract files', async ({ page }) => {
+async function compressFiles(page: any) {
   await navigateToFiles(page);
-  // TODO: separate to 2 functions: compress, extract 
-  // TODO: cover all 3 supported archive extensions
 
-  await createFile(page, ZIP_FILE);
-  await createFolder(page, ZIP_FOLDER);
+  await createFileInRoot(page, ZIP_FILE);
+  await createFolderInRoot(page, ZIP_FOLDER);
 
   await selectItem(page, ZIP_FOLDER);
   await selectItem(page, ZIP_FILE, true);
@@ -277,6 +331,12 @@ test('compress and extract files', async ({ page }) => {
   await page.getByRole('textbox', { name: 'Archive path*' }).fill(ZIP_ARCHIVE);
   await page.getByRole('button', { name: 'Compress', exact: true }).click();
   await expect(page.locator('body')).toContainText(new RegExp(ZIP_ARCHIVE_NAME, 'i'));
+
+  console.log('Files compressed successfully');
+}
+
+async function extractFiles(page: any) {
+  await navigateToFiles(page);
 
   await selectItem(page, ZIP_FILE);
   await selectItem(page, ZIP_FOLDER, true);
@@ -291,12 +351,24 @@ test('compress and extract files', async ({ page }) => {
   await expect(page.locator('body')).toContainText(new RegExp(ZIP_FILE, 'i'));
   await expect(page.locator('body')).toContainText(new RegExp(ZIP_FOLDER, 'i'));
 
-  await cleanupAll(page);
+  console.log('Files extracted successfully');
+}
 
-  console.log('Files compressed and extracted successfully');
+test('compress files', async ({ page }) => {
+  await compressFiles(page);
 });
 
+test('extract files', async ({ page }) => {
+  await extractFiles(page);
+  // TODO: cover all 3 supported archive extensions
+  // Cleanup scoped to test subdir to avoid deleting docroots
+});
 
+test('cleanup subdir', async ({ page }) => {
+  await cleanupSubdir(page);
+  // TODO: cover all 3 supported archive extensions
+  // Cleanup scoped to test subdir to avoid deleting docroots
+});
 
 
 // INODES AND DISK USAGE EXPLORERS
@@ -376,4 +448,3 @@ for (const { route, columnHeader, valueRegex } of explorerTests) {
     console.log(`${route} is functional`);
   });
 }
-

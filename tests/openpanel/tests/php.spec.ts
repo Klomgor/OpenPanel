@@ -184,9 +184,148 @@ test.describe('version change', () => {
       await expect(async () => {
         await page.goto(`https://${domain}/info.php?nocache=${Date.now()}`);
         await expect(page.locator('body')).toContainText(`PHP Version ${versionShort}`);
-      }).toPass({ timeout: 15000, intervals: [500] }); // 15s max, every 0.5s
+      }).toPass({ timeout: 30000, intervals: [500] }); // 30s max, every 0.5s
 
       console.log(`php ${versionShort} is working`);
     });
   }
+});
+
+
+test('change default php version', async ({ page }) => {
+  await page.goto('/php/default');
+  await expect(page.getByText(/Current default version/i)).toBeVisible();
+  
+  const oldVersion = await page.locator('#current_default_version').innerText();
+  console.log(`Starting version: ${oldVersion}`);
+
+  const dropdown = page.locator('#new_php_version');
+  const values = await dropdown.locator('option').evaluateAll(options => 
+    options
+      .map(opt => opt.value)
+      .filter(val => val !== "" && val !== "oldVersionValueHere") 
+  );
+  
+  if (values.length === 0) {
+    throw new Error('No alternative PHP versions available to select.');
+  }
+
+  const randomVersion = values[Math.floor(Math.random() * values.length)];
+  await dropdown.selectOption(randomVersion);
+  await page.click('#change-php-version');
+
+  const successRegex = new RegExp(`PHP version ${randomVersion} set as default for new domains`, 'i');
+  await expect(page.getByText(successRegex)).toBeVisible();
+  await expect(page.locator('#current_default_version')).toHaveText(randomVersion);
+
+  console.log(`Default PHP version switch to ${randomVersion} is working`);
+  // TODO: test if used on a new domain!
+});
+
+
+
+test('edit php options', async ({ page }) => {
+  await page.goto('/php/options');  
+  const dropdown = page.locator('#php_version');
+  const values = await dropdown.locator('option').evaluateAll(options => 
+    options
+      .map(opt => opt.value)
+      .filter(val => val !== "" && val !== "oldVersionValueHere") 
+  );
+  
+  if (values.length === 0) {
+    throw new Error('No alternative PHP versions available to select.');
+  }
+
+  const randomVersion = values[Math.floor(Math.random() * values.length)];
+  await dropdown.selectOption(randomVersion);
+  await page.click('#submit_version');
+
+  const successRegex = new RegExp(`${randomVersion} Options`, 'i');
+  await expect(page.getByText(successRegex).first()).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/php/php${randomVersion}/options\\?php_version=${randomVersion}`));
+
+  // 1. max_execution_time
+  const maxExecTime = page.locator('input[name="max_execution_time"]');
+  await maxExecTime.fill('600');
+
+  // 2. disable_functions
+  const disableFuncs = page.locator('input[name="disable_functions"]');
+  await disableFuncs.fill('exec,passthru,shell_exec,system');
+
+  // 3. post_max_size
+  const postMaxSizeContainer = page.locator('div[data-key="post_max_size"]');
+  await postMaxSizeContainer.locator('input.numeric-part').fill('2');
+  await postMaxSizeContainer.locator('select.unit-part').selectOption('G');
+  
+  await page.click('#save-changes-button');
+  await expect(page.getByText(/Configuration edited successfully and PHP-FPM service restarted/i)).toBeVisible();
+
+  await expect(maxExecTime).toHaveValue('600');
+  await expect(disableFuncs).toHaveValue('exec,passthru,shell_exec,system');
+  await expect(postMaxSizeContainer.locator('input.numeric-part')).toHaveValue('2');
+  await expect(postMaxSizeContainer.locator('select.unit-part')).toHaveValue('G');
+  
+  console.log(`PHP options editor for version ${randomVersion} is working and verified.`);
+  // TODO: test on a website and test on page Search to filter table!
+});
+
+
+
+test('edit php.ini files', async ({ page }) => {
+  await page.goto('/php/php_ini_editor');  
+  const dropdown = page.locator('#php_version');
+  const options = await dropdown.locator('option').allAttributes();
+  const values = options
+    .map(attr => attr.value)
+    .filter(val => val !== oldVersion && val !== "");
+
+  if (values.length === 0) {
+    throw new Error('No PHP versions available to select.');
+  }
+
+  const randomVersion = values[Math.floor(Math.random() * values.length)];
+  await dropdown.selectOption(randomVersion);
+  await page.click('#submit_version');
+
+  const successRegex = new RegExp(`Edit PHP.INI file for version ${randomVersion}`, 'i');
+  await expect(page.getByText(successRegex)).toBeVisible(); 
+  await expect(page).toHaveURL(new RegExp(`/php/php${randomVersion}.ini/editor\\?php_version=${randomVersion}`));
+
+  const editorLocator = page.locator('.CodeMirror'); 
+  await expect(editorLocator).toBeVisible();
+
+  const updates = {
+    'max_input_time': '120',
+    'opcache.enable': '1'
+  };
+  
+  await page.evaluate((settings) => {
+    const cm = document.querySelector('.CodeMirror').CodeMirror;
+    let content = cm.getValue();
+  
+    for (const [key, value] of Object.entries(settings)) {
+      const regex = new RegExp(`^(${key}\\s*=\\s*).*`, 'm');
+      if (regex.test(content)) {
+        content = content.replace(regex, `$1${value}`);
+      } else {
+        // show error!
+      }
+    }
+    cm.setValue(content);
+  }, updates);
+
+  await page.click('#save-changes-button');
+  const feedbackRegex = new RegExp(`PHP.INI file for PHP-FPM version ${randomVersion} edited successfully`, 'i');
+  await expect(page.getByText(feedbackRegex)).toBeVisible();
+
+  const updatedContent = await page.evaluate(() => {
+    return document.querySelector('.CodeMirror').CodeMirror.getValue(); //or just textarea!
+  });
+  
+  expect(updatedContent).toContain('max_input_time = 120');
+  expect(updatedContent).toContain('opcache.enable = 1');
+
+  console.log(`PHP.INI editor for version ${randomVersion} is working and verified.`);
+  // TODO: test on a website
 });

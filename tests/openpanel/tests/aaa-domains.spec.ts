@@ -192,8 +192,20 @@ test('change docroot', async ({ page }) => {
 
   // 4. Open the domain in browser and verify PHP execution
   await page.goto(`https://${DOMAIN}/testing.php`);
-  await expect(page.getByText(`File is shown from folder: ${NEW_FOLDER}`)).toBeVisible();
+  const locator = page.getByText(`File is shown from folder: ${NEW_FOLDER}`);
   
+  const timeout = 15000;
+  const start = Date.now();
+  
+  while (Date.now() - start < timeout) {
+    if (await locator.isVisible()) {
+      break;
+    }
+  
+    await page.waitForTimeout(1000);
+    await page.reload();
+  }
+  await expect(locator).toBeVisible();  
   console.log('docroot change is fully working');
 
   // revert

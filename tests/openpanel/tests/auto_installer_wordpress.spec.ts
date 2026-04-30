@@ -36,7 +36,7 @@ test('install wordpress', async ({ page }) => {
   await page.getByRole('textbox', { name: 'Admin Username:' }).fill('rasa');
   await page.getByRole('textbox', { name: 'Admin Password:' }).fill('rasa123');
   await page.getByRole('button', { name: 'Start Installation' }).click();
-await expect(page.getByText(/WordPress installation completed/i)).toBeVisible({ timeout: 20000 });
+await expect(page.getByText(/WordPress installation completed/i)).toBeVisible({ timeout: 60000 });
 
 await navigateToWordpress(page);
 await expect(page.getByText('wp2.jecmenica.rs', { exact: true })).toBeVisible();

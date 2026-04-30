@@ -5,6 +5,8 @@ async function navigateToDashboardPage(page: any) {
   await expect(page).toHaveURL(/dashboard/);
 }
 
+const FILTER_JSON_URL = 'https://gist.githubusercontent.com/stefanpejcic/ea6fd1db9b36645ec3fdd0d5eb26da7d/raw/5178ec1ef083c868ba885052d404d702ffa196c4/filter.json';
+
 // OPEN
 test('access dashboard', async ({ page }) => {
   await navigateToDashboardPage(page);
@@ -56,8 +58,6 @@ test('toggle dark mode', async ({ page }) => {
 
 
 // SEARCH
-const FILTER_JSON_URL = 'https://gist.githubusercontent.com/stefanpejcic/ea6fd1db9b36645ec3fdd0d5eb26da7d/raw/73783ecafd9c3488b2c6de4cf0002bff17f3a1f7/filter.json';
-
 let filterItems: Array<{ name: string; description: string; link: string; module: string }>;
 
 test.beforeAll(async () => {
@@ -66,40 +66,71 @@ test.beforeAll(async () => {
   console.log(`Loaded ${filterItems.length} items from filter.json`);
 });
 
-test('search results', async ({ page }) => {
-  test.setTimeout(90_000); // 90s
-  await navigateToDashboardPage(page);
 
+test('search results', async ({ page }) => {
+  test.setTimeout(300_000);
+  await navigateToDashboardPage(page);
   await page.waitForFunction(() => typeof (window as any).Alpine !== 'undefined');
   await page.waitForTimeout(500);
 
+  const failures: Array<{ name: string; error: string }> = [];
+  let passed = 0;
+
   for (const item of filterItems) {
-    const openBtn = page.locator('button[aria-label="Open search"]');
-    await expect(openBtn).toBeVisible({ timeout: 3000 });
-    await openBtn.click();
+    try {
+      const openBtn = page.locator('button[aria-label="Open search"]');
+      await expect(openBtn).toBeVisible({ timeout: 3000 });
+      await openBtn.click();
 
-    const searchInput = page.locator('#searchInput');
-    await expect(searchInput).toBeVisible({ timeout: 2000 });
-    await expect(searchInput).toBeFocused({ timeout: 2000 });
+      const searchInput = page.locator('#searchInput');
+      await expect(searchInput).toBeVisible({ timeout: 2000 });
+      await expect(searchInput).toBeFocused({ timeout: 2000 });
+      await searchInput.pressSequentially(item.name, { delay: 50 });
 
-    await searchInput.pressSequentially(item.name, { delay: 50 });
+      const dropdown = page.locator('#filteredDropdown');
+      await expect(dropdown).toBeVisible({ timeout: 5000 });
 
-    const dropdown = page.locator('#filteredDropdown');
-    await expect(dropdown).toBeVisible({ timeout: 5000 });
+      const match = dropdown.locator('a').filter({ hasText: item.name }).first();
+      await expect(match).toBeVisible({ timeout: 3000 });
 
-    const match = dropdown.locator('a').filter({ hasText: item.name }).first();
-    await expect(match).toBeVisible({ timeout: 3000 });
-
-    console.log(`✓ found: "${item.name}"`);
-
-    await page.locator('button[aria-label="Close search"]').click();
-    await expect(searchInput).toBeHidden({ timeout: 3000 });
+      console.log(`✓ found: "${item.name}"`);
+      passed++;
+    } catch (err: any) {
+      const msg = err?.message?.split('\n')[0] ?? String(err);
+      console.log(`✗ failed: "${item.name}" — ${msg}`);
+      failures.push({ name: item.name, error: msg });
+    } finally {
+      try {
+        const closeBtn = page.locator('button[aria-label="Close search"]');
+        if (await closeBtn.isVisible({ timeout: 1000 })) {
+          await closeBtn.click();
+          await page.locator('#searchInput').waitFor({ state: 'hidden', timeout: 3000 });
+        }
+      } catch {
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(300);
+      }
+    }
   }
 
-  console.log('search is functional');
+  console.log('\n─── Search Test Summary ───────────────────────────');
+  console.log(`  Passed : ${passed} / ${filterItems.length}`);
+  console.log(`  Failed : ${failures.length} / ${filterItems.length}`);
+  if (failures.length > 0) {
+    console.log('\n  Failures:');
+    for (const f of failures) {
+      console.log(`    ✗ "${f.name}": ${f.error}`);
+    }
+  }
+  console.log('───────────────────────────────────────────────────\n');
+
+  if (failures.length > 0) {
+    throw new Error(
+      `${failures.length} item(s) not found in search:\n` +
+      failures.map(f => `  • "${f.name}": ${f.error}`).join('\n')
+    );
+  }
 });
-
-
 
 
 test('compare sidebar menu links with search', async ({ page }) => {

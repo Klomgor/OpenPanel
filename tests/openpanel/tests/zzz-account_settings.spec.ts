@@ -31,7 +31,7 @@ test('password', async ({ page }) => {
   await page.locator('#password').fill(newPassword);
   await page.locator('#confirm_password').fill(newPassword);
 
-  await page.getByRole('button', { name: 'Update' }).click();
+  await page.locator('#save-button').click();
 
   await expect(page.locator('body')).toContainText(/has been changed successfully/i);
 
@@ -55,7 +55,7 @@ test('password', async ({ page }) => {
   await page.locator('#password').fill(oldPassword);
   await page.locator('#confirm_password').fill(oldPassword);
 
-  await page.getByRole('button', { name: 'Update' }).click();
+  await page.locator('#save-button').click();
 
   await expect(page.locator('body')).toContainText(/has been changed successfully/i);
 });

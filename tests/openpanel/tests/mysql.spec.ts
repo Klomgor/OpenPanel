@@ -74,7 +74,8 @@ test('show system users', async ({ page }) => {
   await page.goto(`/mysql/users`);
 
   await page.getByText('Show system users').click();
-  await expect(page.locator('body')).toContainText(/healthcheck/i);
+  // mariadb has healthcheck, mysql has infoschema
+  await expect(page.locator('body')).toContainText(/healthcheck|infoschema/i);
 
   console.log('show system users working');
 });
