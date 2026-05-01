@@ -6,7 +6,7 @@
 # Docs: https://docs.openpanel.com
 # Author: Stefan Pejcic
 # Created: 01.10.2023
-# Last Modified: 29.04.2026
+# Last Modified: 30.04.2026
 # Company: openpanel.com
 # Copyright (c) openpanel.com
 # 
@@ -1207,6 +1207,7 @@ send_sentinel_notification() {
 
 set_plan_limits_for_user() {
     (opencli plan-apply "$plan_id" "$username" > /dev/null 2>&1 &)
+	(opencli user-quota > /dev/null 2>&1 &)
 }
 
 # MAIN
