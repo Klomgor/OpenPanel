@@ -178,8 +178,8 @@ When disabled:
 * Users can not create and manage Email accounts.
 
 Customize options:
-* To **configure email server** refer to [*How-to Guides > Configure Email Server](/docs/articles/user-experience/how-to-setup-email-in-openpanel/).
-* To **configure email client** refer to [*How-to Guides > How to setup your email client](/docs/articles/email/how-to-setup-your-email-client/).
+* To **configure email server** refer to [*How-to Guides > Configure Email Server*](/docs/articles/user-experience/how-to-setup-email-in-openpanel/).
+* To **configure email client** refer to [*How-to Guides > How to setup your email client*](/docs/articles/email/how-to-setup-your-email-client/).
 * To **view all email accounts on a server** use the [*OpenAdmin > Emails > Email Accounts* page](/docs/admin/emails/).
 * To **set webmail domain or relay hosts** use the [*OpenAdmin > Emails > Email Settings* page](/docs/admin/emails/settings/).
 * To **set up fail2ban** refer to [*How-to Guides > Setup Fail2ban](/docs/articles/email/how-to-setup-fail2ban-mailserver-openpanel/).
