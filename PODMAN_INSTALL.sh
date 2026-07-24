@@ -513,21 +513,20 @@ EOF
 
     fix_selinux_storage_labels
 
-    # initialize podman's state DB serially, before any concurrent podman usage.
-    # If a prior (failed/interrupted) run already initialized the storage DB
-    # with a different/blank graph driver, podman will refuse to start with
-    # a "database graph driver ... does not match" error. Self-heal once by
-    # resetting local storage state, then retry before giving up.
+    # netavark is the backend; drop leftover CNI configs that only produce warnings on Debian
+    rm -f /etc/cni/net.d/*-podman-bridge.conflist
+    printf '[network]\nnetwork_backend = "netavark"\n' >> /etc/containers/containers.conf.d/99-openpanel-net.conf
+
     local podman_info_err
-    podman_info_err=$(podman info 2>&1 >/dev/null)
-    if [[ -n "$podman_info_err" ]]; then
+    if ! podman_info_err=$(podman info 2>&1 >/dev/null); then
         if [[ "$podman_info_err" == *"graph driver"*"does not match"* || "$podman_info_err" == *"database configuration mismatch"* ]]; then
             warn "Stale podman storage state detected — resetting and retrying..."
             run podman system reset -f
             rm -rf /var/lib/containers/storage/* /run/containers/storage/* 2>/dev/null || true
-            podman_info_err=$(podman info 2>&1 >/dev/null)
+            podman info >/dev/null 2>&1 || die 1 "podman failed to initialize: $(tail -3 <<< "$podman_info_err")"
+        else
+            die 1 "podman failed to initialize: $(tail -3 <<< "$podman_info_err")"
         fi
-        [[ -n "$podman_info_err" ]] && die 1 "podman failed to initialize: $(tail -3 <<< "$podman_info_err")"
     fi
 
     run systemctl enable --now podman.socket   # now safe: storage.conf already in place
