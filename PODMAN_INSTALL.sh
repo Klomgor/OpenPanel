@@ -335,11 +335,11 @@ install_packages() {
             run $PACKAGE_MANAGER -qq install -y apt-transport-https ca-certificates
             echo 'APT::Acquire::Retries "3";' > /etc/apt/apt.conf.d/80-retries
             run update-ca-certificates
-            packages=(curl openssl cron git dbus-user-session systemd dbus systemd-container quota uidmap podman podman-compose crun netavark aardvark-dns slirp4netns passt fuse-overlayfs "$kernel_pkg" default-mysql-client sqlite3)
+            packages=(curl openssl cron git dbus-user-session systemd dbus systemd-container quota uidmap iptables podman podman-compose crun netavark aardvark-dns slirp4netns passt fuse-overlayfs "$kernel_pkg" default-mysql-client sqlite3)
             ;;
         yum)
             run yum install -y dnf-plugins-core yum-utils epel-release
-            packages=(curl openssl cronie git dbus-user-session systemd dbus systemd-container quota uidmap podman podman-compose crun netavark aardvark-dns slirp4netns passt fuse-overlayfs mariadb sqlite3)
+            packages=(curl openssl cronie git dbus-user-session systemd dbus systemd-container quota uidmap iptables podman podman-compose crun netavark aardvark-dns slirp4netns passt fuse-overlayfs mariadb sqlite3)
             ;;
         dnf)
             if [[ "$OS_ID" == "openeuler" ]]; then
@@ -470,8 +470,13 @@ fix_selinux_storage_labels() {
     run restorecon -RF /var/lib/containers/storage /run/containers/storage "$SHARED_STORE"
 }
 
-podman_setup() {
+podman_docker_alias() {
     # https://feldspaten.org/2021/07/16/podman-graph-driver-overwritten/
+    # Some VPS providers clone "fresh" servers from a template/golden image
+    # that already contains podman storage state (sometimes with a blank
+    # graph driver recorded) from when the template was built. That state
+    # is inherited even on a first-ever run of this script, so reset
+    # unconditionally rather than only under --repair.
     run podman system reset -f
     install -d -Z /var/lib/containers
 
@@ -481,15 +486,10 @@ podman_setup() {
     mkdir -p /etc/containers/registries.conf.d
     echo 'unqualified-search-registries = ["docker.io"]' > /etc/containers/registries.conf.d/99-openpanel.conf
 
-    # netavark is the backend; drop leftover CNI configs that only produce warnings on Debian
-    rm -f /etc/cni/net.d/*-podman-bridge.conflist
-
-    mkdir -p /etc/containers/containers.conf.d
-    {
-        echo '[network]'
-        echo 'network_backend = "netavark"'
-        command -v pasta &>/dev/null && echo 'default_rootless_network_cmd = "pasta"'
-    } > /etc/containers/containers.conf.d/99-openpanel-net.conf
+    if command -v pasta &>/dev/null; then
+        mkdir -p /etc/containers/containers.conf.d
+        printf '[network]\ndefault_rootless_network_cmd = "pasta"\n' > /etc/containers/containers.conf.d/99-openpanel-net.conf
+    fi
 
     mkdir -p /var/lib/containers/storage /run/containers/storage "$SHARED_STORE"
     chmod -R o+rX "$SHARED_STORE"
@@ -512,6 +512,10 @@ ignore_chown_errors = "true"
 EOF
 
     fix_selinux_storage_labels
+
+    # netavark is the backend; drop leftover CNI configs that only produce warnings on Debian
+    rm -f /etc/cni/net.d/*-podman-bridge.conflist
+    printf '[network]\nnetwork_backend = "netavark"\n' >> /etc/containers/containers.conf.d/99-openpanel-net.conf
 
     local podman_info_err
     if ! podman_info_err=$(podman info 2>&1 >/dev/null); then
@@ -1085,7 +1089,7 @@ setup_progress_bar() {
 STEPS=(
     update_package_manager
     install_packages
-    podman_setup
+    podman_docker_alias
     pull_sytem_images
     hetzner_fix
     clone_repos
