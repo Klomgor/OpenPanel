@@ -9,7 +9,7 @@
 # Usage:                   bash <(curl -sSL https://openpanel.org/podman)
 # Author:                  Stefan Pejcic <stefan@pejcic.rs>
 # Created:                 11.07.2023
-# Last Modified:           22.07.2026
+# Last Modified:           24.07.2026
 ################################################################################
 # shellcheck disable=SC2015
 
