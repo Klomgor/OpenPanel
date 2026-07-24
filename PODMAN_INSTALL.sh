@@ -514,8 +514,8 @@ EOF
     fix_selinux_storage_labels
 
     # netavark is the backend; drop leftover CNI configs that only produce warnings on Debian
-    rm -f /etc/cni/net.d/*-podman-bridge.conflist
-    printf '[network]\nnetwork_backend = "netavark"\n' >> /etc/containers/containers.conf.d/99-openpanel-net.conf
+    #rm -f /etc/cni/net.d/*-podman-bridge.conflist
+    #printf '[network]\nnetwork_backend = "netavark"\n' >> /etc/containers/containers.conf.d/99-openpanel-net.conf
 
     local podman_info_err
     if ! podman_info_err=$(podman info 2>&1 >/dev/null); then
