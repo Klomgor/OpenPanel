@@ -164,7 +164,7 @@ check_requirements() {
     [[ "$(id -u)" == "0" ]] || die 1 "You must be root to run this script."
     [[ "$(uname)" != "Darwin" ]] || die 1 "macOS is not supported."
 
-	if [[ -f /.dockerenv || -f /run/.containerenv ]] || { tr '\0' '\n' < /proc/1/environ | grep -qi '^container='; }; then
+    if [[ -f /.dockerenv || -f /run/.containerenv ]] || { tr '\0' '\n' < /proc/1/environ | grep -qi '^container='; }; then
         die 1 "Running inside a container is not supported."
     fi
 
@@ -197,7 +197,7 @@ detect_installed_panels() {
 
 detect_os_and_package_manager() {
     [[ -f /etc/os-release ]] || die 1 "Cannot detect OS: /etc/os-release not found."
-	# shellcheck disable=SC1091
+    # shellcheck disable=SC1091
     . /etc/os-release
     OS_ID="${ID,,}"
     OS_VERSION_ID="${VERSION_ID:-}"
@@ -220,7 +220,7 @@ detect_os_and_package_manager() {
 
 get_server_ipv4() {
     local ip
-	ip=$(curl --silent --max-time 2 -4 "https://ip.openpanel.com" || curl --silent --max-time 2 -4 "https://ifconfig.me/ip")
+    ip=$(curl --silent --max-time 2 -4 "https://ip.openpanel.com" || curl --silent --max-time 2 -4 "https://ifconfig.me/ip")
     [[ -z "$ip" ]] && ip=$(ip -4 addr show scope global | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -n1)
     [[ "$ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || warn "Could not determine a valid public IPv4 address."
     SERVER_IPV4_ADDRESS="$ip"
@@ -228,12 +228,12 @@ get_server_ipv4() {
 
 set_panel_version() {
     if [[ "$CUSTOM_VERSION" == false ]]; then
-		# TODO TODO TODO TODO
+        # TODO TODO TODO TODO
         #local response
         #response=$(curl -4 -s "https://api.openpanel.com/statistics/" || true)
         #PANEL_VERSION=$(echo "$response" | grep -oP '"latest_version":"\K[^"]+' || true)
         #[[ "$PANEL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || PANEL_VERSION="$DEFAULT_PANEL_VERSION"
-		PANEL_VERSION="$DEFAULT_PANEL_VERSION"
+        PANEL_VERSION="$DEFAULT_PANEL_VERSION"
     fi
 }
 
@@ -273,9 +273,9 @@ pkg_install_with_retry() {
         linux-image-amd64) $PACKAGE_MANAGER install -y linux-image >/dev/null 2>&1 && return ;;
         dbus-user-session) $PACKAGE_MANAGER install -y dbus >/dev/null 2>&1 && return ;;
         uidmap)       $PACKAGE_MANAGER install -y shadow-utils >/dev/null 2>&1 && return ;;
-		iptables)     $PACKAGE_MANAGER install -y iptables-nft >/dev/null 2>&1 && return ;;
+        iptables)     $PACKAGE_MANAGER install -y iptables-nft >/dev/null 2>&1 && return ;;
         netavark|aardvark-dns|crun) warn "Could not install $pkg — podman may fall back to CNI/runc."; return ;;
-        quota|quotatool|systemd-container|slirp4netns|fuse-overlayfs) warn "Could not install $pkg — you may need to install it manually."; return ;;
+        quota|systemd-container|slirp4netns|fuse-overlayfs) warn "Could not install $pkg — you may need to install it manually."; return ;;
     esac
 
     local attempt=1 max=10 delay=5
@@ -309,21 +309,6 @@ install_pkgs_batch() {
     done
 }
 
-build_quotatool_from_source() {
-    quotatool -V >/dev/null 2>&1 && return
-    echo "Building quotatool from source..."
-    local pm=$PACKAGE_MANAGER
-	#run $pm groupinstall "Development Tools" -y
-    if [[ "$pm" == "dnf" ]]; then
-        run dnf install -y git gcc make autoconf automake
-    else
-        run yum install -y git gcc make autoconf automake
-    fi
-    git clone https://github.com/ekenberg/quotatool.git /tmp/quotatool >/dev/null 2>&1
-    ( cd /tmp/quotatool && ./configure && make && make install ) >/dev/null 2>&1
-    rm -rf /tmp/quotatool
-}
-
 wait_for_pkg_lock() {
     local max_wait=300 waited=0
     while (( waited < max_wait )); do
@@ -350,33 +335,31 @@ install_packages() {
             run $PACKAGE_MANAGER -qq install -y apt-transport-https ca-certificates
             echo 'APT::Acquire::Retries "3";' > /etc/apt/apt.conf.d/80-retries
             run update-ca-certificates
-			packages=(curl openssl cron git dbus-user-session systemd dbus systemd-container quota quotatool uidmap podman podman-compose crun netavark aardvark-dns slirp4netns passt fuse-overlayfs "$kernel_pkg" default-mysql-client sqlite3)
+            packages=(curl openssl cron git dbus-user-session systemd dbus systemd-container quota uidmap podman podman-compose crun netavark aardvark-dns slirp4netns passt fuse-overlayfs "$kernel_pkg" default-mysql-client sqlite3)
             ;;
         yum)
-            build_quotatool_from_source
             run yum install -y dnf-plugins-core yum-utils epel-release
             packages=(curl openssl cronie git dbus-user-session systemd dbus systemd-container quota uidmap podman podman-compose crun netavark aardvark-dns slirp4netns passt fuse-overlayfs mariadb sqlite3)
             ;;
         dnf)
-            build_quotatool_from_source
             if [[ "$OS_ID" == "openeuler" ]]; then
                 run dnf install -y dnf-plugins-core yum-utils perl gcc tar
-                packages=(git curl openssl ncurses wget cronie systemd dbus systemd-container quota shadow-utils podman podman-compose crun netavark aardvark-dns passt slirp4netns fuse-overlayfs mariadb sqlite sqlite-devel perl-Math-BigInt)
+                packages=(git curl openssl ncurses wget cronie systemd dbus systemd-container quota shadow-utils podman podman-compose crun netavark aardvark-dns passt slirp4netns fuse-overlayfs mariadb sqlite perl-Math-BigInt)
                 wait_for_pkg_lock
                 install_pkgs_batch "${packages[@]}"
                 return
             fi
             run dnf install -y yum-utils epel-release perl gcc
             if [[ -f /etc/fedora-release ]]; then
-                packages=(git openssl wget dbus-user-session systemd dbus systemd-container quota uidmap podman podman-compose crun netavark aardvark-dns slirp4netns passt fuse-overlayfs mysql sqlite sqlite-devel perl-Math-BigInt)
+                packages=(git openssl wget dbus-user-session systemd dbus systemd-container quota uidmap podman podman-compose crun netavark aardvark-dns slirp4netns passt fuse-overlayfs mysql sqlite perl-Math-BigInt)
             else
-                packages=(git openssl ncurses wget systemd dbus systemd-container quota shadow-utils podman podman-compose crun netavark aardvark-dns slirp4netns passt fuse-overlayfs mariadb sqlite sqlite-devel perl-Math-BigInt)
+                packages=(git openssl ncurses wget systemd dbus systemd-container quota shadow-utils podman podman-compose crun netavark aardvark-dns slirp4netns passt fuse-overlayfs mariadb sqlite perl-Math-BigInt)
             fi
             ;;
     esac
-	
-	wait_for_pkg_lock
-	install_pkgs_batch "${packages[@]}"
+
+    wait_for_pkg_lock
+    install_pkgs_batch "${packages[@]}"
 }
 
 clone_repos() {
@@ -385,43 +368,43 @@ clone_repos() {
     [[ "$REPAIR" == true ]] && rm -rf "$ETC_DIR" /usr/local/opencli /usr/local/opencli /usr/local/admin/
 
     local branch="110"
-    [[ "$architecture" == "aarch64" ]] && branch="armcpu" 
+    [[ "$architecture" == "aarch64" ]] && branch="armcpu"
 
-	# openpanel-configuration
+    # openpanel-configuration
     echo "Downloading openpanel-configuration to $ETC_DIR"
-	#curl -sSL https://github.com/stefanpejcic/openpanel-configuration/archive/refs/heads/main.zip -o /tmp/main.zip && unzip /tmp/main.zip -d "$ETC_DIR"
+    #curl -sSL https://github.com/stefanpejcic/openpanel-configuration/archive/refs/heads/main.zip -o /tmp/main.zip && unzip /tmp/main.zip -d "$ETC_DIR"
 
-	local tmp_extract="/tmp/openpanel-configuration-extract"
-	rm -rf "$tmp_extract"
-	mkdir -p "$tmp_extract"
-	curl -sSL https://github.com/stefanpejcic/openpanel-configuration/archive/refs/heads/main.zip -o /tmp/main.zip && unzip -q /tmp/main.zip -d "$tmp_extract"
-	local src_dir
-	src_dir=$(find "$tmp_extract" -mindepth 1 -maxdepth 1 -type d | head -n1)
-	mkdir -p "$ETC_DIR"
-	cp -a "${src_dir}/." "$ETC_DIR"
-	rm -rf /tmp/main.zip "$tmp_extract"
+    local tmp_extract="/tmp/openpanel-configuration-extract"
+    rm -rf "$tmp_extract"
+    mkdir -p "$tmp_extract"
+    curl -sSL https://github.com/stefanpejcic/openpanel-configuration/archive/refs/heads/main.zip -o /tmp/main.zip && unzip -q /tmp/main.zip -d "$tmp_extract"
+    local src_dir
+    src_dir=$(find "$tmp_extract" -mindepth 1 -maxdepth 1 -type d | head -n1)
+    mkdir -p "$ETC_DIR"
+    cp -a "${src_dir}/." "$ETC_DIR"
+    rm -rf /tmp/main.zip "$tmp_extract"
     [[ -f "$CONFIG_FILE" ]] || die 1 "Config file ${CONFIG_FILE} is missing after downloading configuration from Github."
-	
-	# TODO: remove after 2.0 release nad edit compose file
-	sed -i -E -e 's|^(\s*)- (/run/user/\$\{USER_ID\}/docker\.sock:)|\1#- \2|' -e 's|^(\s*)#- (/run/user/\$\{USER_ID\}/podman/podman\.sock:)|\1- \2|' "/etc/openpanel/docker/compose/1.0/docker-compose.yml"
 
-	# openadmin
+    # TODO: remove after 2.0 release nad edit compose file
+    sed -i -E -e 's|^(\s*)- (/run/user/\$\{USER_ID\}/docker\.sock:)|\1#- \2|' -e 's|^(\s*)#- (/run/user/\$\{USER_ID\}/podman/podman\.sock:)|\1- \2|' "/etc/openpanel/docker/compose/1.0/docker-compose.yml"
+
+    # openadmin
     local admin_binary="openadmin-amd64"
     [[ "$architecture" == "aarch64" ]] && admin_binary="openadmin-arm64"
     echo "Downloading openadmin to /usr/local/admin/$admin_binary"
-	mkdir -p /usr/local/admin/
-	git clone --branch main --single-branch https://github.com/stefanpejcic/openadmin.git /usr/local/admin >/dev/null 2>&1
-	curl -sSL "https://github.com/stefanpejcic/openadmin/releases/download/${PANEL_VERSION%%-beta}/$admin_binary" -o "/usr/local/admin/$admin_binary"
-	[[ -f "/usr/local/admin/$admin_binary" ]] || die 1 "Failed to download OpenAdmin binary ${admin_binary} from Github."
-	chmod +x "/usr/local/admin/$admin_binary"
-	sed -i "s|^ExecStart=.*|ExecStart=/usr/local/admin/${admin_binary}|" "/etc/openpanel/openadmin/service/openadmin.service"
+    mkdir -p /usr/local/admin/
+    git clone --branch main --single-branch https://github.com/stefanpejcic/openadmin.git /usr/local/admin >/dev/null 2>&1
+    curl -sSL "https://github.com/stefanpejcic/openadmin/releases/download/${PANEL_VERSION%%-beta}/$admin_binary" -o "/usr/local/admin/$admin_binary"
+    [[ -f "/usr/local/admin/$admin_binary" ]] || die 1 "Failed to download OpenAdmin binary ${admin_binary} from Github."
+    chmod +x "/usr/local/admin/$admin_binary"
+    sed -i "s|^ExecStart=.*|ExecStart=/usr/local/admin/${admin_binary}|" "/etc/openpanel/openadmin/service/openadmin.service"
 
-	# TODO: edit inline once 2.0 is out
-	sed -i 's|cmd = \["docker", "--context=default", "exec", "openpanel_redis", "redis-cli", "FLUSHDB"\]|cmd = \["podman", "exec", "openpanel_redis", "redis-cli", "FLUSHDB"\]|' "/etc/openpanel/openpanel/service/service.config.py"
+    # TODO: edit inline once 2.0 is out
+    sed -i 's|cmd = \["docker", "--context=default", "exec", "openpanel_redis", "redis-cli", "FLUSHDB"\]|cmd = \["podman", "exec", "openpanel_redis", "redis-cli", "FLUSHDB"\]|' "/etc/openpanel/openpanel/service/service.config.py"
 
-	# opencli
+    # opencli
     echo "Downloading opencli commands to /usr/local/opencli"
-	git clone --branch podman --single-branch https://github.com/stefanpejcic/opencli.git /usr/local/opencli >/dev/null 2>&1
+    git clone --branch podman --single-branch https://github.com/stefanpejcic/opencli.git /usr/local/opencli >/dev/null 2>&1
 }
 
 download_config() {
@@ -454,7 +437,7 @@ sed -i '/"name": "Docker",/,/"type": "system"/{
     fi
 
     cd "$dir" || die 1 "Failed to open $dir"
-  
+
     for f in "${ETC_DIR}openadmin/secret.key" "${ETC_DIR}openpanel/secret.key"; do
         [[ -f "$f" ]] || { openssl rand -hex 32 > "$f"; chmod 600 "$f"; }
     done
@@ -472,11 +455,11 @@ sed -i '/"name": "Docker",/,/"type": "system"/{
 
 setup_modprobe() {
     echo "Editing loadable kernel modules (drivers) from the Linux kernel..."
-	ln -sf "${ETC_DIR}docker/modprobe.txt" /etc/modules-load.d/podman.conf
-	modprobe ip_tables
-	modprobe iptable_filter
-	modprobe iptable_nat
-	modprobe br_netfilter
+    ln -sf "${ETC_DIR}docker/modprobe.txt" /etc/modules-load.d/podman.conf
+    modprobe ip_tables
+    modprobe iptable_filter
+    modprobe iptable_nat
+    modprobe br_netfilter
 }
 
 fix_selinux_storage_labels() {
@@ -488,16 +471,16 @@ fix_selinux_storage_labels() {
 }
 
 podman_docker_alias() {
-	# https://feldspaten.org/2021/07/16/podman-graph-driver-overwritten/
-	# Some VPS providers clone "fresh" servers from a template/golden image
-	# that already contains podman storage state (sometimes with a blank
-	# graph driver recorded) from when the template was built. That state
-	# is inherited even on a first-ever run of this script, so reset
-	# unconditionally rather than only under --repair.
-	run podman system reset -f
-	install -d -Z /var/lib/containers
+    # https://feldspaten.org/2021/07/16/podman-graph-driver-overwritten/
+    # Some VPS providers clone "fresh" servers from a template/golden image
+    # that already contains podman storage state (sometimes with a blank
+    # graph driver recorded) from when the template was built. That state
+    # is inherited even on a first-ever run of this script, so reset
+    # unconditionally rather than only under --repair.
+    run podman system reset -f
+    install -d -Z /var/lib/containers
 
-	rm -rf ~/.local/share/containers/libpod
+    rm -rf ~/.local/share/containers/libpod
 
     # deterministic short-name resolution for all podman/docker calls
     mkdir -p /etc/containers/registries.conf.d
@@ -509,8 +492,8 @@ podman_docker_alias() {
     fi
 
     mkdir -p /var/lib/containers/storage /run/containers/storage "$SHARED_STORE"
-	chmod -R o+rX "$SHARED_STORE"
-	find "$SHARED_STORE" -name '*.lock' -exec chmod o+rw {} \;
+    chmod -R o+rX "$SHARED_STORE"
+    find "$SHARED_STORE" -name '*.lock' -exec chmod o+rw {} \;
 
     find /var/lib/containers/storage /run/containers/storage -mindepth 1 -delete 2>/dev/null || true
     cat > /etc/containers/storage.conf <<EOF
@@ -549,7 +532,7 @@ EOF
 
     run systemctl enable --now podman.socket   # now safe: storage.conf already in place
 
-	command -v podman &>/dev/null && ok "Podman ... ready." || die 1 "Podman is not installed."
+    command -v podman &>/dev/null && ok "Podman ... ready." || die 1 "Podman is not installed."
 }
 
 
@@ -566,7 +549,7 @@ prefetch_shared_images() {
     local compose_dir="${ETC_DIR}docker/compose/1.0"
     local compose_file="${compose_dir}/docker-compose.yml"
     [[ -f "$compose_file" ]] || { warn "Prefetch skipped — compose file not found: $compose_file"; return; }
-	[[ -n "${SKIP_REQUIREMENTS:-}" ]] && return
+    [[ -n "${SKIP_REQUIREMENTS:-}" ]] && return
 
     if (( disk_mb <= 20480 )); then
         echo "Root disk free is $(( disk_mb / 1024 ))GB (<=20GB) — skipping bulk shared-image prefetch."
@@ -590,9 +573,9 @@ prefetch_shared_images() {
         done
 
         # newly pulled layers are root-owned 0600/0700 — rootless user podmans
-		chmod -R o+rX "$SHARED_STORE"
-		find "$SHARED_STORE" -name '*.lock' -exec chmod o+rw {} \; 2>/dev/null || true
-		command -v restorecon &>/dev/null && restorecon -R "$SHARED_STORE" >/dev/null 2>&1 || true
+        chmod -R o+rX "$SHARED_STORE"
+        find "$SHARED_STORE" -name '*.lock' -exec chmod o+rw {} \; 2>/dev/null || true
+        command -v restorecon &>/dev/null && restorecon -R "$SHARED_STORE" >/dev/null 2>&1 || true
 
     ) >/dev/null 2>&1 &
     disown
@@ -605,12 +588,12 @@ setup_compose() {
     _MYSQL_PULL_PID=$!
 
     local test_output
-	test_output=$(timeout 30 podman run --rm docker.io/library/alpine echo "Hello from Alpine!" 2>&1 || true)
-	[[ "$test_output" == *"Hello from Alpine!"* ]] && ok "Podman alpine container ran successfully." || die 1 "Running alpine container failed, error: $test_output"
+    test_output=$(timeout 30 podman run --rm docker.io/library/alpine echo "Hello from Alpine!" 2>&1 || true)
+    [[ "$test_output" == *"Hello from Alpine!"* ]] && ok "Podman alpine container ran successfully." || die 1 "Running alpine container failed, error: $test_output"
 
     echo "Setting up MariaDB..."
     local mysql_cnf="/etc/my.cnf"
-	local root_pw; root_pw=$(openssl rand -hex 16)
+    local root_pw; root_pw=$(openssl rand -hex 16)
 
     cd /root || die 1 "No read access to /root"
     rm -f "$mysql_cnf" .env
@@ -627,10 +610,10 @@ setup_compose() {
         sed -i "/# openpanel/,/# openadmin/ s/:[0-9]\+/:$USER_PORT/g" "${ETC_DIR}nginx/vhosts/openpanel_proxy.conf"
     }
 
-	sed -i "s|MYSQL_ROOT_PASSWORD=.*|MYSQL_ROOT_PASSWORD=${root_pw}|" /root/.env
+    sed -i "s|MYSQL_ROOT_PASSWORD=.*|MYSQL_ROOT_PASSWORD=${root_pw}|" /root/.env
     ln -s "${ETC_DIR}mysql/host_my.cnf" "$mysql_cnf"
-	sed -i "s|password = .*|password = ${root_pw}|" "${ETC_DIR}mysql/host_my.cnf"
-	sed -i "s|password = .*|password = ${root_pw}|" "${ETC_DIR}mysql/container_my.cnf"
+    sed -i "s|password = .*|password = ${root_pw}|" "${ETC_DIR}mysql/host_my.cnf"
+    sed -i "s|password = .*|password = ${root_pw}|" "${ETC_DIR}mysql/container_my.cnf"
 
     [[ "$OS_ID" == "almalinux" ]] && sed -i 's/mysql\/mysql-server/mysql/g' /root/docker-compose.yml
     if [[ "$OS_ID" == "debian" ]]; then
@@ -654,13 +637,13 @@ setup_compose() {
 }
 
 setup_bind() {
-	[[ "$SKIP_DNS_SERVER" == true ]] && { echo "Skipping BIND (--skip-dns-server)."; return; }
+    [[ "$SKIP_DNS_SERVER" == true ]] && { echo "Skipping BIND (--skip-dns-server)."; return; }
     echo "Setting up BIND DNS..."
     install -d -m 755 /etc/bind
     cp -r "${ETC_DIR}bind9/"* /etc/bind/
-	
+
     echo "Pinning BIND9 to the server's real IP because Podman's aardvark-dns holds port 53 on each bridge gateway IP..."
-	BIND_IP=$(hostname -I | awk '{print $1}') && sed -i -E 's|^(\s*-\s*")([0-9.]+:)?53:53/(tcp\|udp)"|\1'"$BIND_IP"':53:53/\3"|' /root/docker-compose.yml
+    BIND_IP=$(hostname -I | awk '{print $1}') && sed -i -E 's|^(\s*-\s*")([0-9.]+:)?53:53/(tcp\|udp)"|\1'"$BIND_IP"':53:53/\3"|' /root/docker-compose.yml
 
     if [[ "$OS_ID" == "ubuntu" || "$OS_ID" == "debian" ]]; then
         local resolved_conf="/etc/systemd/resolved.conf"
@@ -964,7 +947,7 @@ verify_license() {
 }
 
 start_system_containers() {
-	podman pull docker.io/openpanel/openpanel-ui:2.0.0-beta >/dev/null 2>&1 & # HARDCODED FOR BETA
+    podman pull docker.io/openpanel/openpanel-ui:2.0.0-beta >/dev/null 2>&1 & # HARDCODED FOR BETA
 }
 
 run_housekeeping_parallel() {
@@ -1016,7 +999,7 @@ create_admin_account() {
     fi
 
     sqlite3 "${ETC_DIR}openadmin/users.db" "CREATE TABLE IF NOT EXISTS user (id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'user', is_active BOOLEAN DEFAULT 1 NOT NULL, totp_secret TEXT, totp_enabled BOOLEAN DEFAULT 0 NOT NULL);" 2>/dev/null || true
-	opencli admin new "$new_username" "$new_password" --super >/dev/null 2>&1 || true
+    opencli admin new "$new_username" "$new_password" --super >/dev/null 2>&1 || true
 
     local count; count=$(sqlite3 "${ETC_DIR}openadmin/users.db" "SELECT COUNT(*) FROM user WHERE username = '$new_username';" 2>/dev/null || echo 0)
 
@@ -1025,13 +1008,13 @@ create_admin_account() {
     fi
 
     display_logins
-	systemctl restart admin
+    systemctl restart admin
     send_email_if_configured
 }
 
 extra_step_for_podman() {
-	systemctl reset-failed podman.socket 2>/dev/null || true
-	systemctl restart podman.socket 2>/dev/null || true
+    systemctl reset-failed podman.socket 2>/dev/null || true
+    systemctl restart podman.socket 2>/dev/null || true
 }
 
 display_logins() {
@@ -1112,7 +1095,7 @@ STEPS=(
     hetzner_fix
     clone_repos
     download_config
-	prefetch_shared_images
+    prefetch_shared_images
     setup_opencli
     install_openadmin
     setup_compose
@@ -1133,11 +1116,11 @@ run_installation() {
     enable_trapping
     setup_scroll_area
     local total=${#STEPS[@]} current=0
-	for step in "${STEPS[@]}"; do
-	    s=$(date +%s); $step; e=$(date +%s)
-	    echo "[TIMING] $step: $((e-s))s" >> "$LOG_FILE"
-	    (( current++ )); draw_progress_bar $(( current * 100 / total ))
-	done
+    for step in "${STEPS[@]}"; do
+        s=$(date +%s); $step; e=$(date +%s)
+        echo "[TIMING] $step: $((e-s))s" >> "$LOG_FILE"
+        (( current++ )); draw_progress_bar $(( current * 100 / total ))
+    done
     destroy_scroll_area
 }
 
